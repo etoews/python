@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv --version)",
+      "Read(//Users/etoews/**)",
+      "Bash(brew --version)",
+      "Bash(uv python *)",
+      "Bash(bash -c 'source ~/.zprofile && echo \"PIP_REQUIRE_VIRTUALENV=$PIP_REQUIRE_VIRTUALENV\"')",
+      "Bash(zsh -c 'source ~/.zprofile; echo \"PIP_REQUIRE_VIRTUALENV=$PIP_REQUIRE_VIRTUALENV\"')",
+      "Bash(code --install-extension charliermarsh.ruff)",
+      "Bash(code --install-extension astral-sh.ty)",
+      "Bash(code --install-extension tamasfe.even-better-toml)",
+      "Bash(code --install-extension ms-toolsai.jupyter)",
+      "Bash(code --uninstall-extension ms-python.isort)",
+      "Bash(code --list-extensions)",
+      "Bash(python3 -m json.tool \"/Users/etoews/Library/Application Support/Code/User/settings.json\")",
+      "Bash(Grep -q \"charliermarsh.ruff\")",
+      "Bash(gh auth *)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git check-ignore *)"
+    ]
+  }
+}
