@@ -11,6 +11,7 @@ Opinionated, single-path conventions for Python projects on this machine. Prescr
 | Tests | **pytest** | `uv add --dev pytest pytest-cov` |
 | Type check | **ty** | `uv add --dev ty` |
 | Logging | stdlib `logging` | built-in |
+| CLI (apps) | **Typer** | `uv add typer` |
 
 ty is pre-1.0. If it blocks you on a legitimate typing pattern, fall back to mypy for that project (`uv add --dev mypy`) and move on.
 
@@ -23,11 +24,12 @@ ty is pre-1.0. If it blocks you on a legitimate typing pattern, fall back to myp
 - [5. ty (type check)](#5-ty-type-check)
 - [6. Docstrings](#6-docstrings)
 - [7. Logging](#7-logging)
-- [8. Error handling](#8-error-handling)
-- [9. Dependency management](#9-dependency-management)
-- [10. Upgrading Python](#10-upgrading-python)
-- [11. Templates](#11-templates)
-- [12. Quick reference](#12-quick-reference)
+- [8. CLI (apps only)](#8-cli-apps-only)
+- [9. Error handling](#9-error-handling)
+- [10. Dependency management](#10-dependency-management)
+- [11. Upgrading Python](#11-upgrading-python)
+- [12. Templates](#12-templates)
+- [13. Quick reference](#13-quick-reference)
 
 ---
 
@@ -78,7 +80,7 @@ build/
 
 ## 2. `pyproject.toml`
 
-Single source of truth for metadata, build, dependencies, and tool config. See the full template in §11a.
+Single source of truth for metadata, build, dependencies, and tool config. See the full template in §12a.
 
 **Sections:**
 - `[project]` — name, version, `requires-python`, `dependencies`, authors, description, license
@@ -118,7 +120,7 @@ uv run ruff format           # format (black-compatible)
 - `S101` (assert-used): pytest uses asserts; this is correct.
 - `D100`-series (missing docstrings): tests don't need them.
 
-Config can live in `[tool.ruff]` inside `pyproject.toml` (default; §11a) or a standalone `ruff.toml` (§11b). Pick one. Do not duplicate.
+Config can live in `[tool.ruff]` inside `pyproject.toml` (default; §12a) or a standalone `ruff.toml` (§12b). Pick one. Do not duplicate.
 
 **In CI: `ruff format --check`** (fails if unformatted) and `ruff check` (no `--fix`).
 
@@ -245,7 +247,7 @@ Never `logging.getLogger()` (that's the root logger — configuring it affects e
 
 **Libraries do not configure logging.** Add `logging.getLogger("myproj").addHandler(logging.NullHandler())` in `src/myproj/__init__.py` and stop there. Let the application configure.
 
-**Applications configure once** at the entry point — see `_logging.py` template in §11d.
+**Applications configure once** at the entry point — see `_logging.py` template in §12d.
 
 **Use `%` formatting for lazy eval:**
 ```python
@@ -262,7 +264,34 @@ logger.debug(f"fetched {len(items)} items in {elapsed:.2f}s")
 
 ---
 
-## 8. Error handling
+## 8. CLI (apps only)
+
+For apps that expose a CLI, **use Typer.** It turns the type hints you already write under §5 into args, options, help text, and validation — no decorator soup, no string-typed arguments.
+
+```
+uv add typer
+```
+
+**Why Typer:**
+- **vs Click** — Typer *is* Click underneath, but type-hint-driven. Same maturity, less boilerplate. Drop to raw Click only when you need dynamic command construction the type system can't express.
+- **vs argparse** — fine for a 30-line one-shot script. Past two subcommands and a few flags you're rebuilding what Typer gives you for free.
+- **vs Fire** — too magic for shipped tools; reflection-based CLIs drift silently as the code drifts.
+
+**Pair with `rich`** (`uv add rich`) for tables, progress bars, and styled output to *stdout*. Keep `logging` (§7) for diagnostics to *stderr*. Different channels — don't conflate them.
+
+**Entry point** is already declared in §12a:
+```toml
+[project.scripts]
+myproj = "myproj.__main__:main"
+```
+
+Then `uv run myproj --help` works, and `uv tool install .` installs it system-wide.
+
+See §12e for the `__main__.py` template.
+
+---
+
+## 9. Error handling
 
 **Raise specific exceptions.** `raise Exception(...)` is unfilterable — every caller has to either catch everything or nothing.
 
@@ -307,7 +336,7 @@ Never bare `except:` — always `except Exception:` at minimum (so KeyboardInter
 
 ---
 
-## 9. Dependency management
+## 10. Dependency management
 
 **Add deps:**
 ```
@@ -342,7 +371,7 @@ uv run --with httpx --with rich python script.py
 
 ---
 
-## 10. Upgrading Python
+## 11. Upgrading Python
 
 Bump a project to a newer Python version when the global default moves up, when you need new syntax or stdlib features, or when the current pin nears end-of-life. One project at a time, one commit.
 
@@ -369,7 +398,7 @@ Bump a project to a newer Python version when the global default moves up, when 
    uv run pytest
    ```
 
-7. **Update CI** if your workflow pins a Python version explicitly. The §11c template uses `uv python install` (no explicit version), which honours `.python-version` automatically — nothing to edit there.
+7. **Update CI** if your workflow pins a Python version explicitly. The §12c template uses `uv python install` (no explicit version), which honours `.python-version` automatically — nothing to edit there.
 
 8. **Commit as a single-purpose change.** Subject like `python: upgrade to 3.X`. Bundle `.python-version`, `pyproject.toml`, `uv.lock`, and any source/test edits ruff made. Keep unrelated work out — a Python bump should be reviewable in isolation and revertable in one click.
 
@@ -379,11 +408,11 @@ Bump a project to a newer Python version when the global default moves up, when 
 
 ---
 
-## 11. Templates
+## 12. Templates
 
 Copy-paste-ready. Rename `myproj` to your project name throughout.
 
-### 11a. `pyproject.toml` (full starter)
+### 12a. `pyproject.toml` (full starter)
 
 ```toml
 [project]
@@ -440,7 +469,7 @@ filterwarnings = ["error"]  # treat warnings as errors in tests
 include = ["src"]
 ```
 
-### 11b. Standalone `ruff.toml` (alternative to `[tool.ruff]` in pyproject.toml — pick one, not both)
+### 12b. Standalone `ruff.toml` (alternative to `[tool.ruff]` in pyproject.toml — pick one, not both)
 
 ```toml
 line-length = 100
@@ -457,7 +486,7 @@ ignore = []
 quote-style = "double"
 ```
 
-### 11c. `.github/workflows/ci.yml`
+### 12c. `.github/workflows/ci.yml`
 
 ```yaml
 name: CI
@@ -499,7 +528,7 @@ jobs:
 
 Pin `astral-sh/setup-uv` to the current major tag; bump intentionally.
 
-### 11d. `src/myproj/_logging.py`
+### 12d. `src/myproj/_logging.py`
 
 ```python
 """Logging setup. Call configure() once from the app entry point."""
@@ -554,9 +583,68 @@ def configure() -> None:
 
 Call `configure()` from `src/myproj/__main__.py` (or your CLI entry point) — never from library code.
 
+### 12e. `src/myproj/__main__.py` (Typer CLI entry point)
+
+```python
+"""CLI entry point. Run with `uv run myproj` or `python -m myproj`."""
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Annotated
+
+import typer
+
+from myproj._logging import configure as configure_logging
+
+app = typer.Typer(
+    help="One-line description of myproj.",
+    no_args_is_help=True,
+    add_completion=False,  # enable once you publish, if you want shell completion
+)
+
+
+@app.callback()
+def _root() -> None:
+    """Configure logging before any subcommand runs."""
+    configure_logging()
+
+
+@app.command()
+def greet(
+    name: Annotated[str, typer.Argument(help="Person to greet.")],
+    loud: Annotated[bool, typer.Option(help="SHOUT the greeting.")] = False,
+) -> None:
+    """Greet someone."""
+    msg = f"Hello, {name}!"
+    typer.echo(msg.upper() if loud else msg)
+
+
+@app.command()
+def process(
+    path: Annotated[Path, typer.Argument(exists=True, dir_okay=False, readable=True)],
+) -> None:
+    """Process a file."""
+    typer.echo(f"Processing {path}")
+
+
+def main() -> None:
+    """Console-script entry point referenced from pyproject.toml."""
+    app()
+
+
+if __name__ == "__main__":
+    main()
+```
+
+Notes:
+- `Annotated[...]` is the modern Typer style (≥0.9). The legacy default-value form (`name: str = typer.Argument(...)`) still works but is on its way out.
+- `no_args_is_help=True` shows help instead of failing silently when invoked bare.
+- `@app.callback()` runs before any subcommand — the place to wire up logging, load config, etc.
+- `typer.echo` over `print` — handles encoding and pager redirection.
+
 ---
 
-## 12. Quick reference
+## 13. Quick reference
 
 | Command | Purpose |
 |---|---|
