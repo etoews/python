@@ -14,6 +14,21 @@ Opinionated, single-path conventions for Python projects on this machine. Prescr
 
 ty is pre-1.0. If it blocks you on a legitimate typing pattern, fall back to mypy for that project (`uv add --dev mypy`) and move on.
 
+## Contents
+
+- [1. Project structure](#1-project-structure)
+- [2. `pyproject.toml`](#2-pyprojecttoml)
+- [3. Ruff (lint + format)](#3-ruff-lint--format)
+- [4. Pytest](#4-pytest)
+- [5. ty (type check)](#5-ty-type-check)
+- [6. Docstrings](#6-docstrings)
+- [7. Logging](#7-logging)
+- [8. Error handling](#8-error-handling)
+- [9. Dependency management](#9-dependency-management)
+- [10. Upgrading Python](#10-upgrading-python)
+- [11. Templates](#11-templates)
+- [12. Quick reference](#12-quick-reference)
+
 ---
 
 ## 1. Project structure
@@ -63,7 +78,7 @@ build/
 
 ## 2. `pyproject.toml`
 
-Single source of truth for metadata, build, dependencies, and tool config. See the full template in §10a.
+Single source of truth for metadata, build, dependencies, and tool config. See the full template in §11a.
 
 **Sections:**
 - `[project]` — name, version, `requires-python`, `dependencies`, authors, description, license
@@ -103,7 +118,7 @@ uv run ruff format           # format (black-compatible)
 - `S101` (assert-used): pytest uses asserts; this is correct.
 - `D100`-series (missing docstrings): tests don't need them.
 
-Config can live in `[tool.ruff]` inside `pyproject.toml` (default; §10a) or a standalone `ruff.toml` (§10b). Pick one. Do not duplicate.
+Config can live in `[tool.ruff]` inside `pyproject.toml` (default; §11a) or a standalone `ruff.toml` (§11b). Pick one. Do not duplicate.
 
 **In CI: `ruff format --check`** (fails if unformatted) and `ruff check` (no `--fix`).
 
@@ -230,7 +245,7 @@ Never `logging.getLogger()` (that's the root logger — configuring it affects e
 
 **Libraries do not configure logging.** Add `logging.getLogger("myproj").addHandler(logging.NullHandler())` in `src/myproj/__init__.py` and stop there. Let the application configure.
 
-**Applications configure once** at the entry point — see `_logging.py` template in §10d.
+**Applications configure once** at the entry point — see `_logging.py` template in §11d.
 
 **Use `%` formatting for lazy eval:**
 ```python
@@ -327,11 +342,48 @@ uv run --with httpx --with rich python script.py
 
 ---
 
-## 10. Templates
+## 10. Upgrading Python
+
+Bump a project to a newer Python version when the global default moves up, when you need new syntax or stdlib features, or when the current pin nears end-of-life. One project at a time, one commit.
+
+**Steps:**
+
+1. **Pick the target version.** See what's already on disk: `uv python list --only-installed`. If you need a newer interpreter: `uv python install 3.X` (uv downloads and caches it; nothing global is touched).
+
+2. **Pin the project:** `uv python pin 3.X`. Rewrites `.python-version`.
+
+3. **Update `pyproject.toml`:**
+   - `requires-python = ">=3.X"` under `[project]`.
+   - `target-version = "py3X"` under `[tool.ruff]` — without this, ruff keeps applying the *old* version's rules and the `UP` fixes in step 5 won't fire.
+   - `[tool.ty]` needs no change; ty reads `requires-python`.
+
+4. **Rebuild the venv:** `rm -rf .venv && uv sync`. Recreating from scratch is faster than debugging a half-migrated environment, and the lockfile is what's authoritative anyway.
+
+5. **Modernize syntax:** `uv run ruff check --select UP --fix`. Rewrites `Optional[X]` → `X | None`, `List[X]` → `list[X]`, `typing.Dict` → `dict`, `Union[A, B]` → `A | B`, and similar. Review the diff before staging — `UP` is mechanical but occasionally touches code you'd want to look at.
+
+6. **Run every check.** Anything that broke at the language level surfaces here:
+   ```
+   uv run ruff check
+   uv run ruff format --check
+   uv run ty check
+   uv run pytest
+   ```
+
+7. **Update CI** if your workflow pins a Python version explicitly. The §11c template uses `uv python install` (no explicit version), which honours `.python-version` automatically — nothing to edit there.
+
+8. **Commit as a single-purpose change.** Subject like `python: upgrade to 3.X`. Bundle `.python-version`, `pyproject.toml`, `uv.lock`, and any source/test edits ruff made. Keep unrelated work out — a Python bump should be reviewable in isolation and revertable in one click.
+
+**Library projects:** raising `requires-python` drops support for users on older versions. Be deliberate; mention the bump in the changelog. Apps can move freely.
+
+**Skipping multiple versions** (e.g. 3.11 → 3.14) is fine, but expect more cleanup in step 5 and more deprecations in step 6. Don't try to land it alongside a feature branch — give it its own PR.
+
+---
+
+## 11. Templates
 
 Copy-paste-ready. Rename `myproj` to your project name throughout.
 
-### 10a. `pyproject.toml` (full starter)
+### 11a. `pyproject.toml` (full starter)
 
 ```toml
 [project]
@@ -388,7 +440,7 @@ filterwarnings = ["error"]  # treat warnings as errors in tests
 include = ["src"]
 ```
 
-### 10b. Standalone `ruff.toml` (alternative to `[tool.ruff]` in pyproject.toml — pick one, not both)
+### 11b. Standalone `ruff.toml` (alternative to `[tool.ruff]` in pyproject.toml — pick one, not both)
 
 ```toml
 line-length = 100
@@ -405,7 +457,7 @@ ignore = []
 quote-style = "double"
 ```
 
-### 10c. `.github/workflows/ci.yml`
+### 11c. `.github/workflows/ci.yml`
 
 ```yaml
 name: CI
@@ -447,7 +499,7 @@ jobs:
 
 Pin `astral-sh/setup-uv` to the current major tag; bump intentionally.
 
-### 10d. `src/myproj/_logging.py`
+### 11d. `src/myproj/_logging.py`
 
 ```python
 """Logging setup. Call configure() once from the app entry point."""
@@ -504,7 +556,7 @@ Call `configure()` from `src/myproj/__main__.py` (or your CLI entry point) — n
 
 ---
 
-## 11. Quick reference
+## 12. Quick reference
 
 | Command | Purpose |
 |---|---|
